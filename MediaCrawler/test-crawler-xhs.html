@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小红书爬虫测试 - MediaCrawler</title>
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --text-primary: #f0f0f5;
+            --text-secondary: #a0a0b0;
+            --accent-color: #ff3366;
+            --accent-gradient: linear-gradient(135deg, #ff3366 0%, #ff6b6b 100%);
+            --success-color: #00d68f;
+            --warning-color: #ffaa00;
+            --error-color: #ff4757;
+            --info-color: #3b82f6;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --glow-effect: 0 0 20px rgba(255, 51, 102, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(ellipse at 50% 0%, rgba(255, 51, 102, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 100% 100%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--glow-effect), var(--card-shadow);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .card-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .icon-search { background: linear-gradient(135deg, #ff3366 0%, #ff6b6b 100%); }
+        .icon-status { background: linear-gradient(135deg, #00d68f 0%, #00a8ff 100%); }
+        .icon-logs { background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 14px 18px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(255, 51, 102, 0.2);
+        }
+
+        .btn {
+            padding: 14px 32px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 51, 102, 0.4);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 51, 102, 0.5);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%);
+            color: white;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-idle { background: var(--text-secondary); animation: none; }
+        .status-running { background: var(--success-color); }
+        .status-error { background: var(--error-color); }
+        .status-stopping { background: var(--warning-color); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+
+        .log-container {
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            padding: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            gap: 12px;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            color: var(--text-secondary);
+            min-width: 70px;
+        }
+
+        .log-level {
+            min-width: 70px;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+
+        .log-level.info { color: var(--info-color); }
+        .log-level.success { color: var(--success-color); }
+        .log-level.warning { color: var(--warning-color); }
+        .log-level.error { color: var(--error-color); }
+        .log-level.debug { color: var(--text-secondary); }
+
+        .log-message {
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 450px;
+            width: 90%;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+            box-shadow: var(--glow-effect), var(--card-shadow);
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal h3 {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .modal p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .qr-container {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            display: inline-block;
+            margin-bottom: 24px;
+        }
+
+        .qr-placeholder {
+            width: 200px;
+            height: 200px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .qr-placeholder .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .cookie-input-container {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .cookie-input-container textarea {
+            width: 100%;
+            height: 100px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            margin-bottom: 12px;
+        }
+
+        .cookie-input-container textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 16px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--accent-gradient);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .result-card {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .result-card h4 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .result-card p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .ws-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .ws-status .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .ws-status.connected .dot { background: var(--success-color); }
+        .ws-status.disconnected .dot { background: var(--error-color); }
+        .ws-status.connecting .dot { 
+            background: var(--warning-color);
+            animation: pulse 1s infinite;
+        }
+
+        /* Cookie提示样式 */
+        .cookie-help {
+            background: rgba(255, 170, 0, 0.1);
+            border: 1px solid rgba(255, 170, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            text-align: left;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .cookie-help strong {
+            color: var(--warning-color);
+        }
+
+        .cookie-help ol {
+            margin-top: 8px;
+            padding-left: 20px;
+            color: var(--text-secondary);
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            .container { padding: 20px; }
+            .form-row { flex-direction: column; }
+        }
+
+        .form-row {
+            display: flex;
+            gap: 16px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 小红书爬虫测试</h1>
+            <p class="subtitle">MediaCrawler 自动化测试工具 - 支持二维码扫描登录</p>
+        </header>
+
+        <!-- 搜索配置卡片 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon icon-search">🔎</div>
+                <h2>搜索配置</h2>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="keyword">搜索关键词</label>
+                    <input type="text" id="keyword" value="问界m7" placeholder="输入搜索关键词...">
+                </div>
+                <div class="form-group">
+                    <label for="loginType">登录方式</label>
+                    <select id="loginType">
+                        <option value="qrcode">二维码扫描登录</option>
+                        <option value="cookie">Cookie 登录</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="startBtn" onclick="startCrawler()">
+                    <span>🚀</span> 开始爬取
+                </button>
+                <button class="btn btn-danger" id="stopBtn" onclick="stopCrawler()" disabled>
+                    <span>⏹️</span> 停止爬取
+                </button>
+                <button class="btn btn-secondary" onclick="clearLogs()">
+                    <span>🧹</span> 清空日志
+                </button>
+            </div>
+        </div>
+
+        <!-- 状态卡片 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon icon-status">📊</div>
+                <h2>运行状态</h2>
+                <div class="ws-status disconnected" id="wsStatus">
+                    <span class="dot"></span>
+                    <span id="wsStatusText">WebSocket 未连接</span>
+                </div>
+            </div>
+
+            <div class="status-bar">
+                <div class="status-indicator status-idle" id="statusIndicator"></div>
+                <div>
+                    <div id="statusText">空闲 (Idle)</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);" id="statusDetail">等待启动爬虫任务...</div>
+                </div>
+            </div>
+
+            <div class="progress-bar" id="progressContainer" style="display: none;">
+                <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- 日志卡片 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon icon-logs">📝</div>
+                <h2>实时日志</h2>
+            </div>
+            <div class="log-container" id="logContainer">
+                <div class="log-entry">
+                    <span class="log-time">--:--:--</span>
+                    <span class="log-level info">INFO</span>
+                    <span class="log-message">等待开始爬虫任务...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录弹窗 -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal">
+            <h3>📱 扫码登录小红书</h3>
+            <p>请使用小红书APP扫描下方二维码完成登录<br>登录成功后将自动开始爬取数据</p>
+            
+            <div class="qr-container" id="qrContainer">
+                <div class="qr-placeholder" id="qrPlaceholder">
+                    <div class="spinner"></div>
+                    <span>等待二维码...</span>
+                </div>
+                <img id="qrImage" src="" alt="Login QR Code" style="display: none; width: 200px; height: 200px;">
+            </div>
+
+            <div class="cookie-input-container">
+                <div class="cookie-help">
+                    <strong>💡 提示：</strong>如果二维码扫描困难，可以手动输入Cookie
+                    <ol>
+                        <li>在浏览器登录小红书</li>
+                        <li>按F12打开开发者工具</li>
+                        <li>在Network标签页找到任意请求</li>
+                        <li>复制Request Headers中的Cookie</li>
+                    </ol>
+                </div>
+                <textarea id="cookieInput" placeholder="粘贴完整的Cookie字符串..."></textarea>
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="submitCookie()">使用Cookie登录</button>
+                    <button class="btn btn-secondary" onclick="closeLoginModal()">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // MediaCrawler API 基础URL
+        const API_BASE = 'http://127.0.0.1:8080';
+        const WS_BASE = 'ws://127.0.0.1:8080';
+
+        // 状态
+        let websocket = null;
+        let currentJobId = null;
+        let isRunning = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
+
+        // DOM元素
+        const logContainer = document.getElementById('logContainer');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const statusDetail = document.getElementById('statusDetail');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const loginModal = document.getElementById('loginModal');
+        const wsStatus = document.getElementById('wsStatus');
+        const wsStatusText = document.getElementById('wsStatusText');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
+            checkStatus();
+            setInterval(checkStatus, 5000); // 每5秒检查一次状态
+        });
+
+        // 连接WebSocket
+        function connectWebSocket() {
+            updateWsStatus('connecting');
+            
+            try {
+                websocket = new WebSocket(`${WS_BASE}/api/ws/logs`);
+
+                websocket.onopen = () => {
+                    console.log('[WS] Connected');
+                    updateWsStatus('connected');
+                    reconnectAttempts = 0;
+                    addLog('WebSocket 连接成功', 'success');
+                };
+
+                websocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleLogMessage(data);
+                    } catch (e) {
+                        // 处理ping/pong
+                        if (event.data === 'ping') {
+                            websocket.send('pong');
+                        }
+                    }
+                };
+
+                websocket.onclose = () => {
+                    console.log('[WS] Disconnected');
+                    updateWsStatus('disconnected');
+                    
+                    // 自动重连
+                    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                        reconnectAttempts++;
+                        setTimeout(connectWebSocket, 2000 * reconnectAttempts);
+                    }
+                };
+
+                websocket.onerror = (error) => {
+                    console.error('[WS] Error:', error);
+                    addLog('WebSocket 连接错误', 'error');
+                };
+
+            } catch (e) {
+                console.error('[WS] Connection failed:', e);
+                updateWsStatus('disconnected');
+            }
+        }
+
+        // 更新WebSocket状态显示
+        function updateWsStatus(status) {
+            wsStatus.className = `ws-status ${status}`;
+            const statusTexts = {
+                'connected': 'WebSocket 已连接',
+                'disconnected': 'WebSocket 未连接',
+                'connecting': 'WebSocket 连接中...'
+            };
+            wsStatusText.textContent = statusTexts[status] || status;
+        }
+
+        // 处理日志消息
+        function handleLogMessage(data) {
+            // 添加日志
+            addLogEntry(data.timestamp, data.level, data.message);
+
+            // 检测是否需要登录（检查日志内容中的关键词）
+            const msg = data.message.toLowerCase();
+            if (msg.includes('请使用手机app扫描二维码') || 
+                msg.includes('qrcode') && msg.includes('login') ||
+                msg.includes('扫描二维码') ||
+                msg.includes('scan qr code')) {
+                showLoginModal();
+            }
+
+            // 检测登录成功
+            if (msg.includes('登录成功') || msg.includes('login success') || msg.includes('cookie saved')) {
+                closeLoginModal();
+                addLog('登录成功！继续爬取...', 'success');
+            }
+
+            // 检测任务完成
+            if (msg.includes('completed successfully') || msg.includes('任务完成') || msg.includes('crawler completed')) {
+                updateStatus('idle', '任务完成', '数据爬取已完成');
+                setButtonState(false);
+            }
+        }
+
+        // 添加日志条目
+        function addLogEntry(timestamp, level, message) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-time">${timestamp || new Date().toLocaleTimeString()}</span>
+                <span class="log-level ${level}">${level.toUpperCase()}</span>
+                <span class="log-message">${escapeHtml(message)}</span>
+            `;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 简单添加日志
+        function addLog(message, level = 'info') {
+            addLogEntry(new Date().toLocaleTimeString(), level, message);
+        }
+
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 检查爬虫状态
+        async function checkStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/api/crawler/status`);
+                const data = await response.json();
+                
+                isRunning = data.status === 'running';
+                updateStatus(data.status, getStatusText(data.status), getStatusDetail(data));
+                setButtonState(isRunning);
+                
+                // 更新当前jobId
+                if (data.client_job_id) {
+                    currentJobId = data.client_job_id;
+                }
+
+            } catch (e) {
+                console.error('Status check failed:', e);
+                addLog('状态检查失败: ' + e.message, 'error');
+            }
+        }
+
+        // 获取状态文本
+        function getStatusText(status) {
+            const texts = {
+                'idle': '空闲 (Idle)',
+                'running': '运行中 (Running)',
+                'stopping': '停止中 (Stopping)',
+                'error': '错误 (Error)'
+            };
+            return texts[status] || status;
+        }
+
+        // 获取状态详情
+        function getStatusDetail(data) {
+            if (data.status === 'idle') {
+                return '等待启动爬虫任务...';
+            }
+            if (data.status === 'running') {
+                return `平台: ${data.platform || 'N/A'} | 类型: ${data.crawler_type || 'N/A'} | JobID: ${data.client_job_id || 'N/A'}`;
+            }
+            if (data.error_message) {
+                return data.error_message;
+            }
+            return '';
+        }
+
+        // 更新状态显示
+        function updateStatus(status, text, detail) {
+            statusIndicator.className = `status-indicator status-${status}`;
+            statusText.textContent = text;
+            statusDetail.textContent = detail;
+            
+            // 显示/隐藏进度条
+            progressContainer.style.display = status === 'running' ? 'block' : 'none';
+        }
+
+        // 设置按钮状态
+        function setButtonState(running) {
+            startBtn.disabled = running;
+            stopBtn.disabled = !running;
+        }
+
+        // 开始爬虫
+        async function startCrawler() {
+            const keyword = document.getElementById('keyword').value.trim();
+            const loginType = document.getElementById('loginType').value;
+
+            if (!keyword) {
+                addLog('请输入搜索关键词', 'warning');
+                return;
+            }
+
+            // 生成唯一的JobID
+            currentJobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            addLog(`开始爬取小红书: 关键词="${keyword}", 登录方式=${loginType}`, 'info');
+
+            try {
+                const requestBody = {
+                    platform: 'xhs',
+                    login_type: loginType,
+                    crawler_type: 'search',
+                    keywords: keyword,
+                    client_job_id: currentJobId,
+                    save_option: 'json',
+                    enable_comments: true,
+                    enable_sub_comments: false,
+                    headless: false  // 需要显示浏览器以便扫码
+                };
+
+                addLog('发送请求: ' + JSON.stringify(requestBody, null, 2), 'debug');
+
+                const response = await fetch(`${API_BASE}/api/crawler/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    addLog(`爬虫已启动! JobID: ${currentJobId}`, 'success');
+                    updateStatus('running', '运行中', `正在爬取关键词: ${keyword}`);
+                    setButtonState(true);
+                    
+                    // 如果使用二维码登录，提示用户
+                    if (loginType === 'qrcode') {
+                        addLog('请在弹出的浏览器窗口中扫描二维码登录', 'warning');
+                        setTimeout(() => {
+                            showLoginModal();
+                        }, 3000);  // 3秒后显示弹窗
+                    }
+                } else {
+                    addLog(`启动失败: ${data.detail || JSON.stringify(data)}`, 'error');
+                }
+
+            } catch (e) {
+                addLog(`请求失败: ${e.message}`, 'error');
+            }
+        }
+
+        // 停止爬虫
+        async function stopCrawler() {
+            addLog('正在停止爬虫...', 'warning');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/crawler/stop`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    addLog('爬虫已停止', 'success');
+                    updateStatus('idle', '空闲', '爬虫已手动停止');
+                    setButtonState(false);
+                } else {
+                    addLog(`停止失败: ${data.detail || JSON.stringify(data)}`, 'error');
+                }
+
+            } catch (e) {
+                addLog(`请求失败: ${e.message}`, 'error');
+            }
+        }
+
+        // 清空日志
+        function clearLogs() {
+            logContainer.innerHTML = `
+                <div class="log-entry">
+                    <span class="log-time">${new Date().toLocaleTimeString()}</span>
+                    <span class="log-level info">INFO</span>
+                    <span class="log-message">日志已清空</span>
+                </div>
+            `;
+        }
+
+        // 显示登录弹窗
+        function showLoginModal() {
+            loginModal.classList.add('active');
+            addLog('请在弹窗中完成登录或输入Cookie', 'warning');
+        }
+
+        // 关闭登录弹窗
+        function closeLoginModal() {
+            loginModal.classList.remove('active');
+        }
+
+        // 使用Cookie登录
+        async function submitCookie() {
+            const cookie = document.getElementById('cookieInput').value.trim();
+            
+            if (!cookie) {
+                addLog('请输入Cookie', 'warning');
+                return;
+            }
+
+            // 保存Cookie并重新启动爬虫
+            addLog('使用Cookie重新启动爬虫...', 'info');
+            
+            // 先停止当前任务
+            try {
+                await fetch(`${API_BASE}/api/crawler/stop`, { method: 'POST' });
+            } catch (e) {
+                // 忽略停止错误
+            }
+
+            // 使用Cookie启动新任务
+            const keyword = document.getElementById('keyword').value.trim();
+            currentJobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/crawler/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        platform: 'xhs',
+                        login_type: 'cookie',
+                        crawler_type: 'search',
+                        keywords: keyword,
+                        client_job_id: currentJobId,
+                        save_option: 'json',
+                        cookies: cookie,
+                        headless: true  // 使用Cookie时可以无头模式
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    addLog(`使用Cookie启动成功! JobID: ${currentJobId}`, 'success');
+                    closeLoginModal();
+                    setButtonState(true);
+                } else {
+                    addLog(`启动失败: ${data.detail || JSON.stringify(data)}`, 'error');
+                }
+
+            } catch (e) {
+                addLog(`请求失败: ${e.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
