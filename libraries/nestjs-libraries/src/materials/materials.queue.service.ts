@@ -8,9 +8,11 @@ import {
 } from '@gitroom/nestjs-libraries/materials/materials.crawler.service';
 import { MaterialsService } from '@gitroom/nestjs-libraries/materials/materials.service';
 import {
-  MaterialsEventPayload,
   MaterialsEventsService,
 } from '@gitroom/nestjs-libraries/materials/materials.events.service';
+import * as fs from 'fs';
+import * as path from 'path';
+import axios from 'axios';
 
 const DEFAULT_QUEUE_NAME = 'materials';
 const DEFAULT_ATTEMPTS = 3;
@@ -363,6 +365,13 @@ export class MaterialsQueueService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    await this.downloadAssets(resolved.file.path, this.getJobId(job));
+
+    // Reload data after download updates
+    if (fs.existsSync(resolved.file.path)) {
+      resolved.data = JSON.parse(fs.readFileSync(resolved.file.path, 'utf-8'));
+    }
+
     const { count, preview } = this.extractResultSummary(resolved.data);
     const updatedConsumed = [...consumedPaths, resolved.file.path];
     await job.updateData({ ...job.data, consumedPaths: updatedConsumed });
@@ -678,5 +687,101 @@ export class MaterialsQueueService implements OnModuleInit, OnModuleDestroy {
       return '';
     }
     return String(job.id);
+  }
+
+  private async downloadAssets(jsonPath: string, jobId: string) {
+    if (!fs.existsSync(jsonPath)) return;
+    const content = fs.readFileSync(jsonPath, 'utf-8');
+    let json: any = {};
+    try {
+      json = JSON.parse(content);
+    } catch (e) {
+      return;
+    }
+
+    let items: any[] = [];
+    if (Array.isArray(json)) items = json;
+    else if (json.data && Array.isArray(json.data)) items = json.data;
+    else return;
+
+    const downloadDir = path.join(process.cwd(), 'uploads', 'materials', jobId);
+    if (!fs.existsSync(downloadDir)) {
+      fs.mkdirSync(downloadDir, { recursive: true });
+    }
+
+    const downloadFile = async (url: string, prefix: string): Promise<string | null> => {
+      if (!url || typeof url !== 'string' || !url.startsWith('http')) return null;
+      try {
+        const urlObj = new URL(url);
+        let ext = path.extname(urlObj.pathname);
+        if (!ext || ext.length > 5) ext = prefix.startsWith('video') ? '.mp4' : '.jpg';
+
+        const filename = `${prefix}_${uuidv4()}${ext}`;
+        const filePath = path.join(downloadDir, filename);
+
+        if (!fs.existsSync(filePath)) {
+          await axios({
+            url,
+            method: 'GET',
+            responseType: 'stream',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            },
+            timeout: 20000
+          }).then(response => {
+            const writer = fs.createWriteStream(filePath);
+            response.data.pipe(writer);
+            return new Promise((resolve, reject) => {
+              writer.on('finish', resolve);
+              writer.on('error', reject);
+            });
+          });
+        }
+        return `local:${jobId}/${filename}`;
+      } catch (e) {
+        this.logger.warn(`Failed to download ${url}: ${e instanceof Error ? e.message : String(e)}`);
+        return null;
+      }
+    };
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+
+      // Handle fields that can be arrays or comma-separated strings
+      const listFields = ['image_list', 'images', 'image_urls'];
+      for (const field of listFields) {
+        if (!item[field]) continue;
+
+        let urls: string[] = [];
+        if (Array.isArray(item[field])) {
+          urls = item[field];
+        } else if (typeof item[field] === 'string') {
+          urls = item[field].split(',').map((u: string) => u.trim()).filter((u: string) => u);
+        }
+
+        if (urls.length > 0) {
+          const newUrls: string[] = [];
+          for (let j = 0; j < urls.length; j++) {
+            const local = await downloadFile(urls[j], `image_${i}_${j}`);
+            newUrls.push(local || urls[j]);
+          }
+          item[field] = newUrls;
+        }
+      }
+
+      // Handle single string fields
+      const singleFields = ['cover', 'cover_url', 'video_cover', 'video_url'];
+      for (const field of singleFields) {
+        if (!item[field] || typeof item[field] !== 'string') continue;
+        const prefix = field.includes('video') && !field.includes('cover') ? 'video' : 'image';
+        const local = await downloadFile(item[field], `${prefix}_${i}`);
+        if (local) item[field] = local;
+      }
+    }
+
+    if (Array.isArray(json)) json = items;
+    else if (json.data) json.data = items;
+
+    fs.writeFileSync(jsonPath, JSON.stringify(json, null, 2));
   }
 }

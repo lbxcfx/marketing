@@ -23,5 +23,9 @@ pnpm --filter ./apps/orchestrator run dev &
 echo "Starting Social Auto Upload..."
 (cd social-auto-upload-main/social-auto-upload-main && python sau_backend.py) &
 
+# Start MediaCrawler in background (Port 8081)
+echo "Starting MediaCrawler..."
+(cd MediaCrawler && uv run uvicorn api.main:app --port 8081 --reload) &
+
 # Wait for all background processes to finish (if you ctrl+c, it should stop them)
 wait

@@ -9,10 +9,13 @@ import {
   Sse,
   Res,
   Header,
+  Param,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import * as path from 'path';
+import * as fs from 'fs';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { Organization } from '@prisma/client';
 import {
@@ -84,11 +87,11 @@ export class MaterialsController {
               return {
                 jobId: null,
                 state: 'succeeded',
-                cachedResults,
+                cachedResults: this.transformLocalPaths(cachedResults),
                 cachedAt: cached.cachedAt,
                 resultPath: cached.resultPath,
                 count: cached.count,
-                preview: cached.preview,
+                preview: this.transformLocalPaths(cached.preview),
                 cacheHit: true,
               };
             }
@@ -159,9 +162,52 @@ export class MaterialsController {
       state: status.state,
       resultPath: result.resultPath,
       count: result.count,
-      preview: result.preview,
-      data,
+      preview: this.transformLocalPaths(result.preview),
+      data: this.transformLocalPaths(data),
     };
+  }
+
+  @Get('/file/:jobId/:filename')
+  @Header('Cache-Control', 'public, max-age=31536000')
+  async getFile(
+    @Param('jobId') jobId: string,
+    @Param('filename') filename: string,
+    @Res() res: Response
+  ) {
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      throw new BadRequestException('Invalid filename');
+    }
+    const filePath = path.join(process.cwd(), 'uploads', 'materials', jobId, filename);
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('File not found');
+    }
+    res.sendFile(filePath);
+  }
+
+  private transformLocalPaths(data: any) {
+    if (!data) return data;
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+    const baseUrl = `${backendUrl}/api/materials/file/`;
+
+    const traverse = (obj: any) => {
+      if (!obj) return;
+      if (Array.isArray(obj)) {
+        obj.forEach(traverse);
+      } else if (typeof obj === 'object') {
+        for (const key in obj) {
+          if (typeof obj[key] === 'string' && obj[key].startsWith('local:')) {
+            const relative = obj[key].substring(6);
+            obj[key] = baseUrl + relative;
+          } else {
+            traverse(obj[key]);
+          }
+        }
+      }
+    };
+
+    const copy = JSON.parse(JSON.stringify(data));
+    traverse(copy);
+    return copy;
   }
 
   @Sse('/events')

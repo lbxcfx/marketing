@@ -217,7 +217,7 @@ export const MaterialsComponent = () => {
         stopPolling();
         setLoading(false);
       } else if (status.state === 'running' || status.state === 'active') {
-        setProgress(status.progress ? status.progress * 100 : 50);
+        setProgress(50); // Jump to 50% immediately as requested
         setStatusMessage(status.message || "Processing...");
       } else if (status.state === 'queued' || status.state === 'waiting') {
         setProgress(10);
@@ -265,7 +265,7 @@ export const MaterialsComponent = () => {
       if (data.jobId) {
         setJobId(data.jobId);
         setStatusMessage(`Job started: ${data.state}`);
-        setProgress(10);
+        setProgress(10); // Start at 10%
 
         // Start polling for job status every 3 seconds
         pollingRef.current = setInterval(() => {
@@ -301,7 +301,15 @@ export const MaterialsComponent = () => {
         const type = eventType || payload.type;
         switch (type) {
           case 'status':
-            setProgress(payload.progress * 100);
+            // Override backend progress with our 50% logic
+            if (payload.state === 'running') {
+              setProgress(50);
+            } else if (payload.state === 'succeeded') {
+              setProgress(100);
+            } else {
+              setProgress(payload.progress ? payload.progress * 100 : 0);
+            }
+
             setStatusMessage(payload.message || payload.state);
             if (payload.state === 'succeeded' || payload.state === 'failed') {
               setLoading(false);
@@ -310,7 +318,8 @@ export const MaterialsComponent = () => {
                 closeLoginModal();
               }
             }
-            if (payload.progress > 0.1 && payload.state === 'running') {
+            if ((payload.progress > 0.1 || payload.state === 'running') && payload.state !== 'succeeded') {
+              // Ensure we close modal if we are running (headless or logged in)
               closeLoginModal();
             }
             break;
