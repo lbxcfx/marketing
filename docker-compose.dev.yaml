@@ -25,6 +25,8 @@ services:
     restart: always
     ports:
       - 6379:6379
+    volumes:
+      - redis-data:/data
     networks:
       - postiz-network
   postiz-pg-admin:
@@ -136,6 +138,7 @@ services:
 
 volumes:
   redisinsight:
+  redis-data:
   postgres-volume:
     external: false
 

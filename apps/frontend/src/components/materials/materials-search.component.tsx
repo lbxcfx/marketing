@@ -14,7 +14,7 @@ export interface MaterialsSearchProps {
 export const MaterialsSearch = (props: MaterialsSearchProps) => {
     const [platform, setPlatform] = useState<string>("xhs");
     const [keywords, setKeywords] = useState<string>("");
-    const [limit, setLimit] = useState<number>(3);
+    const [limit, setLimit] = useState<number>(1);
 
     const handleSearch = () => {
         if (!keywords.trim()) return;
@@ -69,7 +69,7 @@ export const MaterialsSearch = (props: MaterialsSearchProps) => {
                     onClick={handleSearch}
                     loading={props.isLoading}
                 >
-                    Search
+                    {props.isLoading ? 'Generating...' : 'Search'}
                 </Button>
             </div>
         </div>

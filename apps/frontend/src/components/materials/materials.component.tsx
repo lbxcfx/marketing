@@ -256,7 +256,7 @@ export const MaterialsComponent = () => {
 
       if (data.cacheHit && data.cachedResults) {
         const cachedItems = extractResultsItems(data.cachedResults);
-        setResults(mapToMaterialItems(data.preview || cachedItems || [], params.platform));
+        setResults(mapToMaterialItems(cachedItems.length > 0 ? cachedItems : (data.preview || []), params.platform));
         setLoading(false);
         setStatusMessage("Loaded from cache");
         return;

@@ -39,7 +39,7 @@ export interface MaterialsCacheEntry {
 export class MaterialsService {
   private readonly cachePrefix = 'materials:cache:';
 
-  constructor(private readonly crawler: MediaCrawlerService) {}
+  constructor(private readonly crawler: MediaCrawlerService) { }
 
   async resolveOutputForJob({
     jobId,
@@ -73,8 +73,6 @@ export class MaterialsService {
       orgId: query.orgId,
       platform: query.platform,
       keywords: query.keywords.trim().toLowerCase(),
-      startPage: query.startPage,
-      pageLimit: query.pageLimit ?? null,
     };
     return createHash('md5').update(JSON.stringify(normalized)).digest('hex');
   }
@@ -153,11 +151,7 @@ export class MaterialsService {
   }
 
   private getCacheTtlSeconds() {
-    const ttlMinutes = this.parseNumber(
-      process.env.MATERIALS_JOB_TTL_MINUTES,
-      30
-    );
-    return ttlMinutes > 0 ? ttlMinutes * 60 : 0;
+    return 0; // Permanent cache
   }
 
   getResultsLimit() {
