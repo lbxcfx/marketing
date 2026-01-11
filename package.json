@@ -59,7 +59,7 @@
     "@mantine/dates": "^5.10.5",
     "@mantine/hooks": "^5.10.5",
     "@mantine/modals": "^5.10.5",
-    "@mastra/core": "^0.20.2",
+    "@mastra/core": "^0.21.1",
     "@mastra/memory": "^0.15.6",
     "@mastra/pg": "^0.17.2",
     "@modelcontextprotocol/sdk": "^1.22.0",
