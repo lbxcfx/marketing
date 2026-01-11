@@ -18,6 +18,8 @@ import { ListmonkDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-sett
 import { GmbSettingsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/gmb.settings.dto';
 import { FarcasterDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/farcaster.dto';
 import { FacebookDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/facebook.dto';
+import { XiaohongshuDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/xiaohongshu.dto';
+import { DouyinDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/douyin.dto';
 
 export type ProviderExtension<T extends string, M> = { __type: T } & M;
 export type AllProvidersSettings =
@@ -42,6 +44,8 @@ export type AllProvidersSettings =
   | ProviderExtension<'gmb', GmbSettingsDto>
   | ProviderExtension<'facebook', FacebookDto>
   | ProviderExtension<'wrapcast', FarcasterDto>
+  | ProviderExtension<'xiaohongshu', XiaohongshuDto>
+  | ProviderExtension<'douyin', DouyinDto>
   | ProviderExtension<'threads', None>
   | ProviderExtension<'mastodon', None>
   | ProviderExtension<'bluesky', None>
@@ -74,6 +78,8 @@ export const allProviders = (setEmpty?: any) => {
     { value: GmbSettingsDto, name: 'gmb' },
     { value: FarcasterDto, name: 'wrapcast' },
     { value: FacebookDto, name: 'facebook' },
+    { value: XiaohongshuDto, name: 'xiaohongshu' },
+    { value: DouyinDto, name: 'douyin' },
     { value: setEmpty, name: 'threads' },
     { value: setEmpty, name: 'mastodon' },
     { value: setEmpty, name: 'bluesky' },

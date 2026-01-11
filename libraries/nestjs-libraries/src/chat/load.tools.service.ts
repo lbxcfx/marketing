@@ -1,12 +1,54 @@
 import { Injectable } from '@nestjs/common';
 import { Agent } from '@mastra/core/agent';
-import { openai } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { Memory } from '@mastra/memory';
 import { pStore } from '@gitroom/nestjs-libraries/chat/mastra.store';
 import { array, object, string } from 'zod';
-import { ModuleRef } from '@nestjs/core';
+import { ModuleRef } from '@nestjs/core'
 import { toolList } from '@gitroom/nestjs-libraries/chat/tools/tool.list';
 import dayjs from 'dayjs';
+
+// Configure AI provider based on available API keys
+const openAiKey = process.env.OPENAI_API_KEY || '';
+const dashScopeKey = process.env.DASHSCOPE_API_KEY || '';
+const useOpenAI = openAiKey.length > 0;
+
+// Custom fetch wrapper that converts 'developer' role to 'system' for DashScope compatibility
+const dashScopeFetch: typeof fetch = async (url, options) => {
+  if (options?.body && typeof options.body === 'string') {
+    try {
+      const body = JSON.parse(options.body);
+      if (body.messages && Array.isArray(body.messages)) {
+        body.messages = body.messages.map((msg: any) => ({
+          ...msg,
+          role: msg.role === 'developer' ? 'system' : msg.role,
+        }));
+        options = {
+          ...options,
+          body: JSON.stringify(body),
+        };
+      }
+    } catch (e) {
+      // If parsing fails, continue with original body
+    }
+  }
+  return fetch(url, options);
+};
+
+const aiProvider = useOpenAI
+  ? createOpenAI({ apiKey: openAiKey })
+  : createOpenAI({
+    baseURL: process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    apiKey: dashScopeKey,
+    fetch: dashScopeFetch, // Use custom fetch to convert developer -> system
+  });
+
+const modelName = useOpenAI ? 'gpt-4.1' : (process.env.QWEN_MODEL || 'qwen-plus');
+
+// Use .chat() for DashScope to force chat/completions endpoint, regular call for OpenAI
+const aiModel = useOpenAI
+  ? aiProvider(modelName)
+  : aiProvider.chat(modelName);
 
 export const AgentState = object({
   proverbs: array(string()).default([]),
@@ -19,7 +61,7 @@ const renderArray = (list: string[], show: boolean) => {
 
 @Injectable()
 export class LoadToolsService {
-  constructor(private _moduleRef: ModuleRef) {}
+  constructor(private _moduleRef: ModuleRef) { }
 
   async loadTools() {
     return (
@@ -78,14 +120,14 @@ export class LoadToolsService {
       - When outputting a date for the user, make sure it's human readable with time
       - The content of the post, HTML, Each line must be wrapped in <p> here is the possible tags: h1, h2, h3, u, strong, li, ul, p (you can\'t have u and strong together), don't use a "code" box
       ${renderArray(
-        [
-          'If the user confirm, ask if they would like to get a modal with populated content without scheduling the post yet or if they want to schedule it right away.',
-        ],
-        !!ui
-      )}
+          [
+            'If the user confirm, ask if they would like to get a modal with populated content without scheduling the post yet or if they want to schedule it right away.',
+          ],
+          !!ui
+        )}
 `;
       },
-      model: openai('gpt-4.1'),
+      model: aiModel,
       tools,
       memory: new Memory({
         storage: pStore,

@@ -8,7 +8,7 @@ class MockRedis {
     return this.data.get(key);
   }
 
-  async set(key: string, value: any) {
+  async set(key: string, value: any, ..._args: any[]) {
     this.data.set(key, value);
     return 'OK';
   }

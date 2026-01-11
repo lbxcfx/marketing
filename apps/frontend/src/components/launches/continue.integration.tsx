@@ -21,31 +21,72 @@ export const ContinueIntegration: FC<{
   useEffect(() => {
     (async () => {
       const timezone = String(dayjs.tz().utcOffset());
-      const modifiedParams = { ...searchParams };
+      const currentParams =
+        searchParams && typeof searchParams.entries === 'function'
+          ? Object.fromEntries(searchParams.entries())
+          : { ...searchParams };
+
+      const modifiedParams = { ...currentParams };
       if (provider === 'x') {
         Object.assign(modifiedParams, {
-          state: searchParams.oauth_token || '',
-          code: searchParams.oauth_verifier || '',
-          refresh: searchParams.refresh || '',
+          state: currentParams.oauth_token || '',
+          code: currentParams.oauth_verifier || '',
+          refresh: currentParams.refresh || '',
         });
       }
 
       if (provider === 'vk') {
         Object.assign(modifiedParams, {
-          ...searchParams,
-          state: searchParams.state || '',
-          code: searchParams.code + '&&&&' + searchParams.device_id,
+          ...currentParams,
+          state: currentParams.state || '',
+          code: currentParams.code + '&&&&' + currentParams.device_id,
         });
       }
 
-      const data = await fetch(`/integrations/social/${provider}/connect`, {
-        method: 'POST',
-        body: JSON.stringify({ ...modifiedParams, timezone }),
-      });
+      // Fix for Xiaohongshu/Douyin using 'session' instead of 'state'
+      if (currentParams.session) {
+        modifiedParams.state = currentParams.session;
+        if (!modifiedParams.code) {
+          modifiedParams.code = currentParams.session;
+        }
+      }
+
+      let data;
+      const isChinaSocial = ['xiaohongshu', 'douyin'].includes(provider);
+
+      if (isChinaSocial) {
+        // Polling for 5 minutes (60 * 5s)
+        for (let i = 0; i < 60; i++) {
+          data = await fetch(`/integrations/social/${provider}/connect`, {
+            method: 'POST',
+            body: JSON.stringify({ ...modifiedParams, timezone }),
+          });
+
+          if (
+            data.status === HttpStatusCode.Ok ||
+            data.status === HttpStatusCode.Created
+          ) {
+            break;
+          }
+
+          // If not successful, wait 5 seconds and retry
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
+      } else {
+        data = await fetch(`/integrations/social/${provider}/connect`, {
+          method: 'POST',
+          body: JSON.stringify({ ...modifiedParams, timezone }),
+        });
+      }
+
+      if (!data) {
+        setError(true);
+        return;
+      }
 
       if (data.status === HttpStatusCode.PreconditionFailed) {
         push(`/launches?precondition=true`);
-        return ;
+        return;
       }
 
       if (data.status === HttpStatusCode.NotAcceptable) {
@@ -63,7 +104,7 @@ export const ContinueIntegration: FC<{
       }
 
       const { inBetweenSteps, id } = await data.json();
-      if (inBetweenSteps && !searchParams.refresh) {
+      if (inBetweenSteps && !currentParams.refresh) {
         push(`/launches?added=${provider}&continue=${id}`);
         return;
       }

@@ -5,7 +5,7 @@ import {
   ToolMessage,
 } from '@langchain/core/messages';
 import { END, START, StateGraph } from '@langchain/langgraph';
-import { ChatOpenAI, DallEAPIWrapper } from '@langchain/openai';
+import { ChatOpenAI } from '@langchain/openai';
 import { TavilySearchResults } from '@langchain/community/tools/tavily_search';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
@@ -22,15 +22,74 @@ const tools = !process.env.TAVILY_API_KEY
 const toolNode = new ToolNode(tools);
 
 const model = new ChatOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-4.1',
+  apiKey: process.env.DASHSCOPE_API_KEY || 'sk-',
+  model: process.env.QWEN_MODEL || 'qwen3-max',
   temperature: 0.7,
+  configuration: {
+    baseURL: process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  },
 });
 
-const dalle = new DallEAPIWrapper({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'dall-e-3',
-});
+// Wanx (通义万相) API settings - wan2.6-t2i text-to-image model
+const WANX_API_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
+const WANX_MODEL = process.env.WANX_MODEL || 'wan2.6-t2i';
+
+// Helper function to call Wanx API for image generation
+async function generateImageWithWanx(prompt: string, size = '1280*1280'): Promise<string> {
+  const apiKey = process.env.DASHSCOPE_API_KEY;
+  if (!apiKey) {
+    throw new Error('DASHSCOPE_API_KEY is not configured');
+  }
+
+  console.log('[Wanx-Agent] Generating image with prompt:', prompt.substring(0, 100) + '...');
+
+  const response = await fetch(WANX_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: WANX_MODEL,
+      input: {
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      },
+      parameters: {
+        prompt_extend: true,
+        watermark: false,
+        negative_prompt: '',
+        n: 1,
+        size: size,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[Wanx-Agent] API error:', errorText);
+    throw new Error(`Wanx API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const imageUrl = data?.output?.choices?.[0]?.message?.content?.[0]?.image
+    || data?.output?.results?.[0]?.url;
+
+  if (!imageUrl) {
+    console.error('[Wanx-Agent] No image URL in response:', JSON.stringify(data));
+    throw new Error('No image URL returned from Wanx API');
+  }
+
+  return imageUrl;
+}
 
 interface WorkflowChannelsState {
   messages: BaseMessage[];
@@ -84,12 +143,12 @@ const contentZod = (
       ),
     ...(isPicture
       ? {
-          prompt: z
-            .string()
-            .describe(
-              "Prompt to generate a picture for this post later, make sure it doesn't contain brand names and make it very descriptive in terms of style"
-            ),
-        }
+        prompt: z
+          .string()
+          .describe(
+            "Prompt to generate a picture for this post later, make sure it doesn't contain brand names and make it very descriptive in terms of style"
+          ),
+      }
       : {}),
   });
 
@@ -107,7 +166,7 @@ export class AgentGraphService {
   constructor(
     private _postsService: PostsService,
     private _mediaService: MediaService
-  ) {}
+  ) { }
   static state = () =>
     new StateGraph<WorkflowChannelsState>({
       channels: {
@@ -262,16 +321,14 @@ export class AgentGraphService {
         - Don't add any hashtags
         - Make sure it sounds ${state.tone}
         - Use ${state.tone === 'personal' ? '1st' : '3rd'} person mode
-        - ${
-          state.format === 'one_short' || state.format === 'thread_short'
-            ? 'Post should be maximum 200 chars to fit twitter'
-            : 'Post should be long'
-        }
-        - ${
-          state.format === 'one_short' || state.format === 'one_long'
-            ? 'Post should have only 1 item'
-            : 'Post should have minimum 2 items'
-        }
+        - ${state.format === 'one_short' || state.format === 'thread_short'
+        ? 'Post should be maximum 200 chars to fit twitter'
+        : 'Post should be long'
+      }
+        - ${state.format === 'one_short' || state.format === 'one_long'
+        ? 'Post should have only 1 item'
+        : 'Post should have minimum 2 items'
+      }
         - Use the hook as inspiration
         - Make sure it's engaging
         - Don't be cringy
@@ -320,11 +377,19 @@ export class AgentGraphService {
 
     const newContent = await Promise.all(
       (state.content || []).map(async (p) => {
-        const image = await dalle.invoke(p.prompt!);
-        return {
-          ...p,
-          image,
-        };
+        try {
+          const image = await generateImageWithWanx(p.prompt!, '1280*1280');
+          return {
+            ...p,
+            image,
+          };
+        } catch (error) {
+          console.error('Error generating image with Wanx:', error);
+          return {
+            ...p,
+            image: null,
+          };
+        }
       })
     );
 

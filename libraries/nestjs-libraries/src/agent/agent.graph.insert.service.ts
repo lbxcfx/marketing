@@ -9,9 +9,12 @@ import { agentTopics } from '@gitroom/nestjs-libraries/agent/agent.topics';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 
 const model = new ChatOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-4o-2024-08-06',
+  apiKey: process.env.DASHSCOPE_API_KEY || 'sk-',
+  model: process.env.QWEN_MODEL || 'qwen3-max',
   temperature: 0,
+  configuration: {
+    baseURL: process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  },
 });
 
 interface WorkflowChannelsState {
@@ -36,7 +39,7 @@ const hook = z.object({
 
 @Injectable()
 export class AgentGraphInsertService {
-  constructor(private _postsService: PostsService) {}
+  constructor(private _postsService: PostsService) { }
   static state = () =>
     new StateGraph<WorkflowChannelsState>({
       channels: {

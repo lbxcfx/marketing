@@ -47,7 +47,7 @@ export class PostsService {
     private _shortLinkService: ShortLinkService,
     private _openaiService: OpenaiService,
     private _temporalService: TemporalService
-  ) {}
+  ) { }
 
   searchForMissingThreeHoursPosts() {
     return this._postRepository.searchForMissingThreeHoursPosts();
@@ -140,11 +140,11 @@ export class PostsService {
       post!,
       ...(post?.childrenPost?.length
         ? await this.getPostsRecursively(
-            post?.childrenPost?.[0]?.id,
-            false,
-            orgId,
-            false
-          )
+          post?.childrenPost?.[0]?.id,
+          false,
+          orgId,
+          false
+        )
         : []),
     ];
   }
@@ -175,9 +175,9 @@ export class PostsService {
               url:
                 m.path.indexOf('http') === -1
                   ? process.env.FRONTEND_URL +
-                    '/' +
-                    process.env.NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY +
-                    m.path
+                  '/' +
+                  process.env.NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY +
+                  m.path
                   : m.path,
               type: 'image',
               path:
@@ -223,9 +223,9 @@ export class PostsService {
                 url:
                   path.indexOf('http') === -1
                     ? process.env.FRONTEND_URL +
-                      '/' +
-                      process.env.NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY +
-                      path
+                    '/' +
+                    process.env.NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY +
+                    path
                     : path,
                 type: 'image',
                 path:
@@ -440,9 +440,9 @@ export class PostsService {
             ) {
               await workflow.terminate();
             }
-          } catch (err) {}
+          } catch (err) { }
         }
-      } catch (err) {}
+      } catch (err) { }
     }
 
     return { error: true };
@@ -475,11 +475,14 @@ export class PostsService {
           ) {
             await workflow.terminate();
           }
-        } catch (err) {}
+        } catch (err) { }
       }
-    } catch (err) {}
+    } catch (err) {
+      console.log('Error terminating workflow', err);
+    }
 
     try {
+      console.log('Starting workflow', taskQueue, postId, orgId);
       await this._temporalService.client
         .getRawClient()
         ?.workflow.start('postWorkflowV101', {
@@ -503,7 +506,10 @@ export class PostsService {
             },
           ]),
         });
-    } catch (err) {}
+      console.log('Workflow started successfully');
+    } catch (err) {
+      console.error('Error starting workflow', err);
+    }
   }
 
   async createPost(orgId: string, body: CreatePostDto): Promise<any[]> {
@@ -536,7 +542,9 @@ export class PostsService {
         post.settings.__type.split('-')[0].toLowerCase(),
         posts[0].id,
         orgId
-      ).catch((err) => {});
+      ).catch((err) => {
+        console.error('Error in createPost startWorkflow', err);
+      });
 
       Sentry.metrics.count('post_created', 1);
       postList.push({
@@ -566,7 +574,7 @@ export class PostsService {
         getPostById.id,
         orgId
       );
-    } catch (err) {}
+    } catch (err) { }
 
     return newDate;
   }
@@ -639,9 +647,8 @@ export class PostsService {
                 {
                   id: '',
                   delay: 0,
-                  content: `Check out the full story here:\n${
-                    body.postId || body.url
-                  }`,
+                  content: `Check out the full story here:\n${body.postId || body.url
+                    }`,
                   image: [],
                 },
               ],

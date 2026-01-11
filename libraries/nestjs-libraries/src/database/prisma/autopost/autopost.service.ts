@@ -6,7 +6,7 @@ import { END, START, StateGraph } from '@langchain/langgraph';
 import { AutoPost, Integration } from '@prisma/client';
 import { BaseMessage } from '@langchain/core/messages';
 import striptags from 'striptags';
-import { ChatOpenAI, DallEAPIWrapper } from '@langchain/openai';
+import { ChatOpenAI } from '@langchain/openai';
 import { JSDOM } from 'jsdom';
 import { z } from 'zod';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
@@ -36,15 +36,74 @@ interface WorkflowChannelsState {
 }
 
 const model = new ChatOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-4.1',
+  apiKey: process.env.DASHSCOPE_API_KEY || 'sk-',
+  model: process.env.QWEN_MODEL || 'qwen3-max',
   temperature: 0.7,
+  configuration: {
+    baseURL: process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  },
 });
 
-const dalle = new DallEAPIWrapper({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-image-1',
-});
+// Wanx (通义万相) API settings - wan2.6-t2i text-to-image model
+const WANX_API_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
+const WANX_MODEL = process.env.WANX_MODEL || 'wan2.6-t2i';
+
+// Helper function to call Wanx API for image generation
+async function generateImageWithWanx(prompt: string, size = '1280*1280'): Promise<string> {
+  const apiKey = process.env.DASHSCOPE_API_KEY;
+  if (!apiKey) {
+    throw new Error('DASHSCOPE_API_KEY is not configured');
+  }
+
+  console.log('[Wanx-Autopost] Generating image with prompt:', prompt.substring(0, 100) + '...');
+
+  const response = await fetch(WANX_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: WANX_MODEL,
+      input: {
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      },
+      parameters: {
+        prompt_extend: true,
+        watermark: false,
+        negative_prompt: '',
+        n: 1,
+        size: size,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[Wanx-Autopost] API error:', errorText);
+    throw new Error(`Wanx API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const imageUrl = data?.output?.choices?.[0]?.message?.content?.[0]?.image
+    || data?.output?.results?.[0]?.url;
+
+  if (!imageUrl) {
+    console.error('[Wanx-Autopost] No image URL in response:', JSON.stringify(data));
+    throw new Error('No image URL returned from Wanx API');
+  }
+
+  return imageUrl;
+}
 
 const generateContent = z.object({
   socialMediaPostContent: z
@@ -52,10 +111,10 @@ const generateContent = z.object({
     .describe('Content for social media posts max 120 chars'),
 });
 
-const dallePrompt = z.object({
-  generatedTextToBeSentToDallE: z
+const imagePrompt = z.object({
+  generatedPromptForImageGeneration: z
     .string()
-    .describe('Generated prompt from description to be sent to DallE'),
+    .describe('Generated prompt for image generation'),
 });
 
 @Injectable()
@@ -65,7 +124,7 @@ export class AutopostService {
     private _temporalService: TemporalService,
     private _integrationService: IntegrationService,
     private _postsService: PostsService
-  ) {}
+  ) { }
 
   async stopAll(org: string) {
     const getAll = (await this.getAutoposts(org)).filter((f) => f.active);
@@ -116,7 +175,7 @@ export class AutopostService {
               },
             ]),
           });
-      } catch (err) {}
+      } catch (err) { }
     }
 
     try {
@@ -151,9 +210,9 @@ export class AutopostService {
         url: findLast.link,
         description: striptags(
           findLast?.['content:encoded'] ||
-            findLast?.content ||
-            findLast?.description ||
-            ''
+          findLast?.content ||
+          findLast?.description ||
+          ''
         )
           .replace(/\n/g, ' ')
           .trim(),
@@ -242,11 +301,11 @@ export class AutopostService {
   }
 
   async generatePicture(state: WorkflowChannelsState) {
-    const structuredOutput = model.withStructuredOutput(dallePrompt);
-    const { generatedTextToBeSentToDallE } =
+    const structuredOutput = model.withStructuredOutput(imagePrompt);
+    const { generatedPromptForImageGeneration } =
       await ChatPromptTemplate.fromTemplate(
         `
-        You are an assistant that gets description and generate a prompt that will be sent to DallE to generate pictures.
+        You are an assistant that gets description and generate a prompt for image generation.
         
         content:
         {content}
@@ -257,9 +316,13 @@ export class AutopostService {
           content: state.load.description || state.description,
         });
 
-    const image = await dalle.invoke(generatedTextToBeSentToDallE);
-
-    return { ...state, image };
+    try {
+      const image = await generateImageWithWanx(generatedPromptForImageGeneration, '1280*1280');
+      return { ...state, image };
+    } catch (error) {
+      console.error('Error generating image with Wanx:', error);
+      return { ...state, image: null };
+    }
   }
 
   async schedulePost(state: WorkflowChannelsState) {
@@ -293,13 +356,13 @@ export class AutopostService {
             image: !state.image
               ? []
               : [
-                  {
-                    id: makeId(10),
-                    name: makeId(10),
-                    path: state.image,
-                    organizationId: state.integrations[0].organizationId,
-                  },
-                ],
+                {
+                  id: makeId(10),
+                  name: makeId(10),
+                  path: state.image,
+                  organizationId: state.integrations[0].organizationId,
+                },
+              ],
           },
         ],
       })),

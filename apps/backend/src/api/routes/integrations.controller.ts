@@ -48,7 +48,7 @@ export class IntegrationsController {
     private _integrationService: IntegrationService,
     private _postService: PostsService,
     private _refreshIntegrationService: RefreshIntegrationService
-  ) {}
+  ) { }
   @Get('/')
   getIntegrations() {
     return this._integrationManager.getAllIntegrations();
@@ -96,6 +96,10 @@ export class IntegrationsController {
           const findIntegration = this._integrationManager.getSocialIntegration(
             p.providerIdentifier
           );
+          if (!findIntegration) {
+            console.warn(`Integration not found for providerIdentifier: ${p.providerIdentifier} (id: ${p.id})`);
+            return null;
+          }
           return {
             name: p.name,
             id: p.id,
@@ -119,7 +123,7 @@ export class IntegrationsController {
             additionalSettings: p.additionalSettings || '[]',
           };
         })
-      ),
+      ).then((res) => res.filter((f) => f !== null)),
     };
   }
 
@@ -158,18 +162,18 @@ export class IntegrationsController {
 
     const { url } = manager.changeProfilePicture
       ? await manager.changeProfilePicture(
-          integration.internalId,
-          integration.token,
-          body.picture
-        )
+        integration.internalId,
+        integration.token,
+        body.picture
+      )
       : { url: '' };
 
     const { name } = manager.changeNickname
       ? await manager.changeNickname(
-          integration.internalId,
-          integration.token,
-          body.name
-        )
+        integration.internalId,
+        integration.token,
+        body.name
+      )
       : { name: '' };
 
     return this._integrationService.updateNameAndUrl(id, name, url);
@@ -215,9 +219,9 @@ export class IntegrationsController {
     try {
       const getExternalUrl = integrationProvider.externalUrl
         ? {
-            ...(await integrationProvider.externalUrl(externalUrl)),
-            instanceUrl: externalUrl,
-          }
+          ...(await integrationProvider.externalUrl(externalUrl)),
+          instanceUrl: externalUrl,
+        }
         : undefined;
 
       const { codeVerifier, state, url } =
@@ -392,22 +396,11 @@ export class IntegrationsController {
       throw new Error('Invalid state');
     }
 
-    if (!integrationProvider.customFields) {
-      await ioRedis.del(`login:${body.state}`);
-    }
-
     const details = integrationProvider.externalUrl
       ? await ioRedis.get(`external:${body.state}`)
       : undefined;
 
-    if (details) {
-      await ioRedis.del(`external:${body.state}`);
-    }
-
     const refresh = await ioRedis.get(`refresh:${body.state}`);
-    if (refresh) {
-      await ioRedis.del(`refresh:${body.state}`);
-    }
 
     const {
       error,
@@ -488,6 +481,16 @@ export class IntegrationsController {
       throw new HttpException('', 412);
     }
 
+    if (!integrationProvider.customFields) {
+      await ioRedis.del(`login:${body.state}`);
+    }
+    if (details) {
+      await ioRedis.del(`external:${body.state}`);
+    }
+    if (refresh) {
+      await ioRedis.del(`refresh:${body.state}`);
+    }
+
     return this._integrationService.createOrUpdateIntegration(
       additionalSettings,
       !!integrationProvider.oneTimeToken,
@@ -507,10 +510,10 @@ export class IntegrationsController {
       details
         ? AuthService.fixedEncryption(details)
         : integrationProvider.customFields
-        ? AuthService.fixedEncryption(
+          ? AuthService.fixedEncryption(
             Buffer.from(body.code, 'base64').toString()
           )
-        : undefined
+          : undefined
     );
   }
 

@@ -30,6 +30,8 @@ import { WordpressProvider } from '@gitroom/nestjs-libraries/integrations/social
 import { ListmonkProvider } from '@gitroom/nestjs-libraries/integrations/social/listmonk.provider';
 import { GmbProvider } from '@gitroom/nestjs-libraries/integrations/social/gmb.provider';
 import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.abstract';
+import { DouyinProvider } from '@gitroom/nestjs-libraries/integrations/social/douyin.provider';
+import { XiaohongshuProvider } from '@gitroom/nestjs-libraries/integrations/social/xiaohongshu.provider';
 
 export const socialIntegrationList: Array<SocialAbstract & SocialProvider> = [
   new XProvider(),
@@ -59,6 +61,9 @@ export const socialIntegrationList: Array<SocialAbstract & SocialProvider> = [
   new HashnodeProvider(),
   new WordpressProvider(),
   new ListmonkProvider(),
+  // China social platforms
+  new DouyinProvider(),
+  new XiaohongshuProvider(),
   // new MastodonCustomProvider(),
 ];
 

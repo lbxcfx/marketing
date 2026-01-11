@@ -31,6 +31,9 @@ import { AutopostController } from '@gitroom/backend/api/routes/autopost.control
 import { SetsController } from '@gitroom/backend/api/routes/sets.controller';
 import { ThirdPartyController } from '@gitroom/backend/api/routes/third-party.controller';
 import { MonitorController } from '@gitroom/backend/api/routes/monitor.controller';
+import { MaterialsController } from '@gitroom/backend/api/routes/materials.controller';
+import { MaterialsModule } from '@gitroom/nestjs-libraries/materials/materials.module';
+import { PublicMediaController } from '@gitroom/backend/api/routes/public-media.controller';
 
 const authenticatedController = [
   UsersController,
@@ -47,15 +50,17 @@ const authenticatedController = [
   AutopostController,
   SetsController,
   ThirdPartyController,
+  MaterialsController,
 ];
 @Module({
-  imports: [UploadModule],
+  imports: [UploadModule, MaterialsModule],
   controllers: [
     RootController,
     StripeController,
     AuthController,
     PublicController,
     MonitorController,
+    PublicMediaController,  // Public image proxy (no auth required)
     ...authenticatedController,
   ],
   providers: [

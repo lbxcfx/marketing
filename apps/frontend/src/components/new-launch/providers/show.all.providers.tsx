@@ -33,6 +33,8 @@ import { PostComment } from '@gitroom/frontend/components/new-launch/providers/h
 import WordpressProvider from '@gitroom/frontend/components/new-launch/providers/wordpress/wordpress.provider';
 import ListmonkProvider from '@gitroom/frontend/components/new-launch/providers/listmonk/listmonk.provider';
 import GmbProvider from '@gitroom/frontend/components/new-launch/providers/gmb/gmb.provider';
+import DouyinProvider from '@gitroom/frontend/components/new-launch/providers/douyin/douyin.provider';
+import XiaohongshuProvider from '@gitroom/frontend/components/new-launch/providers/xiaohongshu/xiaohongshu.provider';
 
 export const Providers = [
   {
@@ -142,6 +144,15 @@ export const Providers = [
   {
     identifier: 'gmb',
     component: GmbProvider,
+  },
+  // China social platforms
+  {
+    identifier: 'douyin',
+    component: DouyinProvider,
+  },
+  {
+    identifier: 'xiaohongshu',
+    component: XiaohongshuProvider,
   },
 ];
 export const ShowAllProviders = forwardRef((props, ref) => {

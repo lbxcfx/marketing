@@ -21,6 +21,44 @@ export const useMenuItem = () => {
 
   const firstMenu = [
     {
+      name: t('materials', 'Materials'),
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+        >
+          <path
+            d="M4 6.5C4 5.11929 5.11929 4 6.5 4H14.5C15.8807 4 17 5.11929 17 6.5V14.5C17 15.8807 15.8807 17 14.5 17H6.5C5.11929 17 4 15.8807 4 14.5V6.5Z"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M7 9.25H14"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+          <path
+            d="M7 12H12.5"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+          <path
+            d="M8.5 17H17.5C18.8807 17 20 15.8807 20 14.5V8.5"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+        </svg>
+      ),
+      path: '/materials',
+    },
+    {
       name: isGeneral ? t('calendar', 'Calendar') : t('launches', 'Launches'),
       icon: (
         <svg
@@ -275,32 +313,32 @@ export const TopMenu: FC = () => {
         {
           // @ts-ignore
           user?.orgId &&
-            // @ts-ignore
-            (user.tier !== 'FREE' || !isGeneral || !billingEnabled) &&
-            firstMenu
-              .filter((f) => {
-                if (f.hide) {
-                  return false;
-                }
-                if (f.requireBilling && !billingEnabled) {
-                  return false;
-                }
-                if (f.name === 'Billing' && user?.isLifetime) {
-                  return false;
-                }
-                if (f.role) {
-                  return f.role.includes(user?.role!);
-                }
-                return true;
-              })
-              .map((item, index) => (
-                <MenuItem
-                  path={item.path}
-                  label={item.name}
-                  icon={item.icon}
-                  key={item.name}
-                />
-              ))
+          // @ts-ignore
+          (user.tier !== 'FREE' || !isGeneral || !billingEnabled) &&
+          firstMenu
+            .filter((f) => {
+              if (f.hide) {
+                return false;
+              }
+              if (f.requireBilling && !billingEnabled) {
+                return false;
+              }
+              if (f.name === 'Billing' && user?.isLifetime) {
+                return false;
+              }
+              if (f.role) {
+                return f.role.includes(user?.role!);
+              }
+              return true;
+            })
+            .map((item, index) => (
+              <MenuItem
+                path={item.path}
+                label={item.name}
+                icon={item.icon}
+                key={item.name}
+              />
+            ))
         }
       </div>
       <div className="flex flex-col gap-[16px] blurMe">

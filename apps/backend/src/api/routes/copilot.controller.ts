@@ -8,6 +8,7 @@ import {
   Query,
   Param,
 } from '@nestjs/common';
+import OpenAI from 'openai';
 import {
   CopilotRuntime,
   OpenAIAdapter,
@@ -35,23 +36,38 @@ export class CopilotController {
   constructor(
     private _subscriptionService: SubscriptionService,
     private _mastraService: MastraService
-  ) {}
+  ) { }
   @Post('/chat')
   chatAgent(@Req() req: Request, @Res() res: Response) {
-    if (
-      process.env.OPENAI_API_KEY === undefined ||
-      process.env.OPENAI_API_KEY === ''
-    ) {
-      Logger.warn('OpenAI API key not set, chat functionality will not work');
+    const openAiKey = process.env.OPENAI_API_KEY || '';
+    const dashScopeKey = process.env.DASHSCOPE_API_KEY || '';
+
+    const useOpenAI = openAiKey.length > 0;
+    const useDashScope = !useOpenAI && dashScopeKey.length > 0;
+
+    if (!useOpenAI && !useDashScope) {
+      Logger.warn('OpenAI/DashScope API key not set, chat functionality will not work');
       return;
     }
+
+    const openaiClient = useDashScope
+      ? new OpenAI({
+        baseURL: process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        apiKey: dashScopeKey,
+      })
+      : new OpenAI({
+        apiKey: openAiKey,
+      });
+
+    const serviceAdapter = new OpenAIAdapter({
+      model: useOpenAI ? 'gpt-4.1' : (process.env.QWEN_MODEL || 'qwen-plus'),
+      openai: openaiClient as any,
+    });
 
     const copilotRuntimeHandler = copilotRuntimeNodeHttpEndpoint({
       endpoint: '/copilot/chat',
       runtime: new CopilotRuntime(),
-      serviceAdapter: new OpenAIAdapter({
-        model: 'gpt-4.1',
-      }),
+      serviceAdapter,
     });
 
     return copilotRuntimeHandler(req, res);
@@ -64,11 +80,14 @@ export class CopilotController {
     @Res() res: Response,
     @GetOrgFromRequest() organization: Organization
   ) {
-    if (
-      process.env.OPENAI_API_KEY === undefined ||
-      process.env.OPENAI_API_KEY === ''
-    ) {
-      Logger.warn('OpenAI API key not set, chat functionality will not work');
+    const openAiKey = process.env.OPENAI_API_KEY || '';
+    const dashScopeKey = process.env.DASHSCOPE_API_KEY || '';
+
+    const useOpenAI = openAiKey.length > 0;
+    const useDashScope = !useOpenAI && dashScopeKey.length > 0;
+
+    if (!useOpenAI && !useDashScope) {
+      Logger.warn('OpenAI/DashScope API key not set, chat functionality will not work');
       return;
     }
     const mastra = await this._mastraService.mastra();
@@ -92,13 +111,25 @@ export class CopilotController {
       agents,
     });
 
+    const openaiClient = useDashScope
+      ? new OpenAI({
+        baseURL: process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        apiKey: dashScopeKey,
+      })
+      : new OpenAI({
+        apiKey: openAiKey,
+      });
+
+    const serviceAdapter = new OpenAIAdapter({
+      model: useOpenAI ? 'gpt-4.1' : (process.env.QWEN_MODEL || 'qwen-plus'),
+      openai: openaiClient as any,
+    });
+
     const copilotRuntimeHandler = copilotRuntimeNextJSAppRouterEndpoint({
       endpoint: '/copilot/agent',
       runtime,
       // properties: req.body.variables.properties,
-      serviceAdapter: new OpenAIAdapter({
-        model: 'gpt-4.1',
-      }),
+      serviceAdapter,
     });
 
     return copilotRuntimeHandler.handleRequest(req, res);
